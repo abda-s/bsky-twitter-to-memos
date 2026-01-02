@@ -67,22 +67,24 @@ A collection of Python scripts to migrate your content from **Bluesky** and **Tw
 ---
 
 ## 🐦 Twitter / X Scrapers
-We provide three different scripts for scraping X, as no single method works perfectly for all history.
+We provide three scripts, but **`hybrid_x_scraper.py` is the best one** and the only one you likely need.
 
-### 1. `x_scraper_fast_scrolling_improved.py` (Recent History)
-**Use this for:** Rapidly fetching your most recent posts (last ~1 year).
-*   **How it works**: Simulates a user scrolling down your profile page.
-*   **Limitation**: X often stops loading posts after you scroll back a certain amount (usually around 1 year of data).
+### 🏆 `hybrid_x_scraper.py` (Recommended)
+**Use this one.** It automates the entire process by combining the best of both worlds:
+1.  **Fast Scroll**: It starts by rapidly scrolling through your profile to get the most recent ~3,000 posts (much faster).
+2.  **Chunked Search**: Once scrolling hits the limit (X blocks infinite scroll after ~1 year), it automatically switches to "Chunk Mode" to find older posts that scrolling missed.
+*   **Why it's the best**: It gives you the speed of scrolling + the completeness of the advanced search.
 
-### 2. `x_scraper_chunckes.py` (Deep History)
-**Use this for:** Fetching older posts that infinite scroll can't reach.
-*   **How it works**: Uses X's **Advanced Search** to find posts in small date ranges (e.g., 5-day chunks).
-*   **Why**: This bypasses the scroll limit by specifically asking for "Posts by @user from Jan 1 2020 to Jan 5 2020".
-*   **Config**: Set `X_START_YEAR` and `X_END_YEAR` in your `.env`.
+---
+### Other Scrapers (For specific needs)
 
-### 3. `hybrid_x_scraper.py` (The All-in-One)
-**Use this for:** The "set it and forget it" solution.
-*   **How it works**: It combines both methods. It tries to scroll first, and then it switches to "chunked" search to fill in the gaps for older history.
+#### `x_scraper_chunckes.py`
+*   **What it is**: The "Deep Search" component of the hybrid script.
+*   **When to use**: If you *only* want to scrape a specific old year (e.g., just 2018) without scrolling through everything else.
+
+#### `x_scraper_fast_scrolling_improved.py`
+*   **What it is**: The "Fast Scroll" component of the hybrid script.
+*   **When to use**: If you only want to quickly backup your tweets from the last few months.
 
 ---
 
