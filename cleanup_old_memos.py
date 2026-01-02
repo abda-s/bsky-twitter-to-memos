@@ -16,6 +16,7 @@ MEMOS_URL = os.getenv("MEMOS_HOST")
 MEMOS_TOKEN = os.getenv("MEMOS_ACCESS_TOKEN")
 # Set the cutoff date (delete everything BEFORE this date)
 CUTOFF_DATE = os.getenv("CLEANUP_CUTOFF_DATE")
+FILTER_HANDLE = os.getenv("CLEANUP_FILTER_HANDLE")
 DRY_RUN = False  # Set to False to actually delete
 PAGE_SIZE = 100
 RATE_LIMIT_DELAY = 0.1
@@ -162,6 +163,13 @@ def main():
             if not create_time:
                 continue
             
+            # Filter by handle if configured
+            if FILTER_HANDLE:
+                clean_handle = FILTER_HANDLE.strip().lstrip("@")
+                if not memo.get("content", "").startswith(f"@{clean_handle}"):
+                    # Skip memos that don't start with the handle
+                    continue
+
             # Handle both ISO string and Unix timestamp
             try:
                 if isinstance(create_time, str):

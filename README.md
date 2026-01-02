@@ -111,3 +111,4 @@ We provide three scripts, but **`scrape_x_hybrid.py` is the best one** and the o
 ### `cleanup_old_memos.py`
 **Use this for:** Bulk deleting old content.
 *   **Config**: Deletes everything created **BEFORE** the `CLEANUP_CUTOFF_DATE` set in your `.env`.
+*   **Optional Filter**: Set `CLEANUP_FILTER_HANDLE` to only delete memos starting with that handle (e.g., `@{handle}`).
