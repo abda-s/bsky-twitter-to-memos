@@ -3,6 +3,10 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 import time
+import logging
+from typing import List, Dict, Any, Optional
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Load configuration from .env file
 load_dotenv()
@@ -13,47 +17,87 @@ MEMOS_TOKEN = os.getenv("MEMOS_TOKEN")
 # Set the cutoff date (delete everything BEFORE this date)
 CUTOFF_DATE = os.getenv("CUTOFF_DATE")
 DRY_RUN = False  # Set to False to actually delete
-# ---------------------
+PAGE_SIZE = 100
+RATE_LIMIT_DELAY = 0.1
+MAX_RETRIES = 3
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 
-def get_all_memos():
-    """Fetch all memos from Memos with pagination."""
-    headers = {"Authorization": f"Bearer {MEMOS_TOKEN}"}
+
+def create_session_with_retries() -> requests.Session:
+    """Create a requests session with automatic retries."""
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=MAX_RETRIES,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET", "POST", "PATCH"],
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
+def fetch_all_memos(
+    source_url: str, source_token: str, session: requests.Session
+) -> List[Dict[str, Any]]:
+    """Fetch all memos from source instance with pagination."""
+    logger.info("🔍 Fetching all memos from source instance...")
     all_memos = []
     page_token = None
     page_count = 0
-    
-    while True:
-        page_count += 1
-        url = f"{MEMOS_URL}/api/v1/memos"
-        params = {"pageSize": 100}
-        
-        if page_token:
-            params["pageToken"] = page_token
-        
-        try:
-            response = requests.get(url, headers=headers, params=params)
-            
-            if response.status_code == 200:
-                data = response.json()
-                memos = data.get("memos", [])
-                all_memos.extend(memos)
-                
-                print(f"  Page {page_count}: {len(memos)} memos")
-                
-                # Check for next page
-                page_token = data.get("nextPageToken")
-                if not page_token:
-                    break
-            else:
-                print(f"❌ Failed to fetch memos: {response.text[:100]}")
+    max_pages = 1000
+
+    headers = {"Authorization": f"Bearer {source_token}"}
+
+    try:
+        while page_count < max_pages:
+            page_count += 1
+
+            params = {"pageSize": PAGE_SIZE}
+            if page_token:
+                params["pageToken"] = page_token
+
+            response = session.get(
+                f"{source_url.rstrip('/')}/api/v1/memos",
+                params=params,
+                headers=headers,
+                timeout=30,
+            )
+            response.raise_for_status()
+
+            data = response.json()
+            memos = data.get("memos", [])
+
+            if not memos:
                 break
-        except Exception as e:
-            print(f"❌ Error fetching memos: {e}")
-            break
-    
-    print(f"\n✅ Fetched {len(all_memos)} total memos\n")
-    return all_memos
+
+            all_memos.extend(memos)
+            logger.info(
+                f"  📄 Page {page_count}: {len(memos)} memos "
+                f"(total: {len(all_memos)})"
+            )
+
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
+
+            time.sleep(RATE_LIMIT_DELAY)
+
+        logger.info(f"✅ Found {len(all_memos)} total memos\n")
+        return all_memos
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Error fetching memos: {e}")
+        return []
 
 
 def delete_memo(memo_name, memo_id):
@@ -97,13 +141,17 @@ def main():
         print(f"❌ Invalid cutoff date format: {e}")
         return
     
-    # Fetch all memos
-    print("📥 Fetching all memos...\n")
-    memos = get_all_memos()
+    # Create session
+    session = create_session_with_retries()
     
-    if not memos:
-        print("No memos found. Exiting.")
-        return
+    try:
+        # Fetch all memos
+        print("📥 Fetching all memos...\n")
+        memos = fetch_all_memos(MEMOS_URL, MEMOS_TOKEN, session)
+        
+        if not memos:
+            print("No memos found. Exiting.")
+            return
     
     # Filter memos before cutoff date
     memos_to_delete = []
@@ -183,6 +231,9 @@ def main():
         print(f"✅ Successfully deleted: {deleted_count}")
         if failed_count > 0:
             print(f"❌ Failed to delete: {failed_count}")
+            
+    finally:
+        session.close()
 
 
 if __name__ == "__main__":

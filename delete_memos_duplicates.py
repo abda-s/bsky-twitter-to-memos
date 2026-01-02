@@ -3,7 +3,11 @@ import hashlib
 import requests
 from dotenv import load_dotenv
 from collections import defaultdict
-from urllib.parse import quote
+import logging
+import time
+from typing import List, Dict, Any, Optional
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from datetime import datetime
 
 load_dotenv()
@@ -12,7 +16,18 @@ load_dotenv()
 MEMOS_URL = os.getenv("MEMOS_URL")
 MEMOS_TOKEN = os.getenv("MEMOS_TOKEN")
 DRY_RUN = False  # Set to False to actually delete duplicates
-# ---------------------
+MAX_RETRIES = 3
+PAGE_SIZE = 100
+RATE_LIMIT_DELAY = 0.1
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
 
 
 def extract_date(timestamp_str):
@@ -28,61 +43,72 @@ def extract_date(timestamp_str):
         return "unknown"
 
 
-def fetch_all_memos():
-    """Fetch all memos with pagination and error handling."""
-    print("🔍 Fetching all memos...\n")
+def create_session_with_retries() -> requests.Session:
+    """Create a requests session with automatic retries."""
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=MAX_RETRIES,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET", "POST", "PATCH"],
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
+def fetch_all_memos(
+    source_url: str, source_token: str, session: requests.Session
+) -> List[Dict[str, Any]]:
+    """Fetch all memos from source instance with pagination."""
+    logger.info("🔍 Fetching all memos from source instance...")
     all_memos = []
     page_token = None
     page_count = 0
+    max_pages = 1000
 
-    headers = {"Authorization": f"Bearer {MEMOS_TOKEN}"}
+    headers = {"Authorization": f"Bearer {source_token}"}
 
     try:
-        while True:
+        while page_count < max_pages:
             page_count += 1
-            url = f"{MEMOS_URL}/api/v1/memos?pageSize=100"
-            if page_token:
-                encoded_token = quote(page_token, safe='')
-                url += f"&pageToken={encoded_token}"
 
-            try:
-                response = requests.get(url, headers=headers, timeout=30)
-                response.raise_for_status()
-            except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 400:
-                    print(
-                        f"  ⚠️  Page {page_count}: Bad request error "
-                        f"(possibly end of results)"
-                    )
-                    break
-                else:
-                    raise
+            params = {"pageSize": PAGE_SIZE}
+            if page_token:
+                params["pageToken"] = page_token
+
+            response = session.get(
+                f"{source_url.rstrip('/')}/api/v1/memos",
+                params=params,
+                headers=headers,
+                timeout=30,
+            )
+            response.raise_for_status()
 
             data = response.json()
             memos = data.get("memos", [])
-            
+
             if not memos:
-                print(f"  📄 Page {page_count}: No more memos")
                 break
-                
+
             all_memos.extend(memos)
-            print(f"  📄 Page {page_count}: {len(memos)} memos")
+            logger.info(
+                f"  📄 Page {page_count}: {len(memos)} memos "
+                f"(total: {len(all_memos)})"
+            )
 
             page_token = data.get("nextPageToken")
             if not page_token:
                 break
 
-        print(f"\n✅ Total memos fetched: {len(all_memos)}\n")
+            time.sleep(RATE_LIMIT_DELAY)
+
+        logger.info(f"✅ Found {len(all_memos)} total memos\n")
         return all_memos
 
-    except Exception as e:
-        print(f"❌ Error fetching memos: {e}")
-        if all_memos:
-            print(
-                f"⚠️  Continuing with {len(all_memos)} memos "
-                f"fetched so far...\n"
-            )
-            return all_memos
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Error fetching memos: {e}")
         return []
 
 
@@ -250,22 +276,28 @@ def main():
     print(f"Strategy: Same content + same date")
     print(f"{'='*60}\n")
 
-    # Fetch all memos
-    memos = fetch_all_memos()
-    if not memos:
-        print("❌ No memos fetched. Cannot continue.\n")
-        return
+    # Create session with retries
+    session = create_session_with_retries()
+    
+    try:
+        # Fetch all memos
+        memos = fetch_all_memos(MEMOS_URL, MEMOS_TOKEN, session)
+        if not memos:
+            print("❌ No memos fetched. Cannot continue.\n")
+            return
 
-    # Find duplicates
-    duplicates = find_duplicates(memos)
+        # Find duplicates
+        duplicates = find_duplicates(memos)
 
-    # Delete duplicates (or show what would be deleted)
-    if duplicates:
-        delete_duplicates(duplicates)
+        # Delete duplicates (or show what would be deleted)
+        if duplicates:
+            delete_duplicates(duplicates)
 
-        if DRY_RUN:
-            print("💡 To actually delete duplicates, set DRY_RUN = False")
-            print("   in the script configuration.\n")
+            if DRY_RUN:
+                print("💡 To actually delete duplicates, set DRY_RUN = False")
+                print("   in the script configuration.\n")
+    finally:
+        session.close()
 
 
 if __name__ == "__main__":
