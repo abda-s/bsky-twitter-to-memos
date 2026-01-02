@@ -121,7 +121,7 @@ def find_duplicates(memos):
 
     for memo in memos:
         content = memo.get("content", "") or ""
-        resources = memo.get("resources", []) or []
+        resources = memo.get("attachments") or []
         
         # Skip only if BOTH content and resources are empty
         if not content and not resources:
@@ -178,7 +178,7 @@ def find_duplicates(memos):
         date = composite_key.split('_')[-1]
         
         memo_content = memo_list[0].get("content", "")
-        memo_resources = memo_list[0].get("resources", [])
+        memo_resources = memo_list[0].get("attachments") or []
         
         preview = memo_content[:60].replace("\n", " ") if memo_content else "[No Text]"
         if memo_resources:
