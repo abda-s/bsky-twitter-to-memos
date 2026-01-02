@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 load_dotenv()
 
 # --- CONFIGURATION ---
-MEMOS_URL = os.getenv("MEMOS_URL", "http://192.168.X.X:5230")
+MEMOS_URL = os.getenv("MEMOS_URL")
 MEMOS_TOKEN = os.getenv("MEMOS_TOKEN")
 TARGET_USERNAME = os.getenv("TWITTER_USERNAME")
 MAX_SCROLLS = int(os.getenv("MAX_SCROLLS", "10"))
@@ -20,12 +20,12 @@ TWITTER_AUTH_TOKEN = os.getenv("TWITTER_AUTH_TOKEN")
 TWITTER_CT0 = os.getenv("TWITTER_CT0")
 
 # Date range configuration
-START_YEAR = int(os.getenv("START_YEAR", "2015"))
-START_MONTH = int(os.getenv("START_MONTH", "1"))
-START_DAY = int(os.getenv("START_DAY", "1"))
-END_YEAR = int(os.getenv("END_YEAR", "2025"))
-END_MONTH = int(os.getenv("END_MONTH", "1"))
-END_DAY = int(os.getenv("END_DAY", "1"))
+START_YEAR = int(os.getenv("START_YEAR"))
+START_MONTH = int(os.getenv("START_MONTH"))
+START_DAY = int(os.getenv("START_DAY"))
+END_YEAR = int(os.getenv("END_YEAR"))
+END_MONTH = int(os.getenv("END_MONTH"))
+END_DAY = int(os.getenv("END_DAY"))
 
 CHUNK_DAYS = 5  # Scrape in 5-day chunks
 

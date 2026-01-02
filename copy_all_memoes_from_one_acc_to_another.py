@@ -13,9 +13,9 @@ from urllib3.util.retry import Retry
 load_dotenv()
 
 # --- CONFIGURATION ---
-SOURCE_MEMOS_URL = os.getenv("SOURCE_MEMOS_URL", "http://192.168.1.100:5230")
+SOURCE_MEMOS_URL = os.getenv("SOURCE_MEMOS_URL")
 SOURCE_MEMOS_TOKEN = os.getenv("SOURCE_MEMOS_TOKEN")
-DEST_MEMOS_URL = os.getenv("DEST_MEMOS_URL", "http://192.168.1.101:5230")
+DEST_MEMOS_URL = os.getenv("DEST_MEMOS_URL")
 DEST_MEMOS_TOKEN = os.getenv("DEST_MEMOS_TOKEN")
 SOURCE_HANDLE = os.getenv("SOURCE_HANDLE", "")
 PAGE_SIZE = int(os.getenv("PAGE_SIZE", "100"))

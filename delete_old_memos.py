@@ -8,10 +8,10 @@ import time
 load_dotenv()
 
 # --- CONFIGURATION ---
-MEMOS_URL = os.getenv("MEMOS_URL", "http://192.168.X.X:5230")
+MEMOS_URL = os.getenv("MEMOS_URL")
 MEMOS_TOKEN = os.getenv("MEMOS_TOKEN")
 # Set the cutoff date (delete everything BEFORE this date)
-CUTOFF_DATE = os.getenv("CUTOFF_DATE", "2025-12-26T00:00:00Z")
+CUTOFF_DATE = os.getenv("CUTOFF_DATE")
 DRY_RUN = False  # Set to False to actually delete
 # ---------------------
 

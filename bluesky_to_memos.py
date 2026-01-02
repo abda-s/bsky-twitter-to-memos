@@ -10,7 +10,7 @@ import mimetypes
 load_dotenv()
 
 # --- CONFIGURATION ---
-MEMOS_URL = os.getenv("MEMOS_URL", "http://192.168.X.X:5230")
+MEMOS_URL = os.getenv("MEMOS_URL")
 MEMOS_TOKEN = os.getenv("MEMOS_TOKEN")
 BSKY_HANDLE = os.getenv("BSKY_HANDLE")
 BSKY_PASSWORD = os.getenv("BSKY_PASSWORD")
